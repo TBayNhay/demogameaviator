@@ -1,16 +1,16 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = 1280;  // tăng chiều rộng
-canvas.height = 480;  // tăng chiều cao
+canvas.width = 1280;
+canvas.height = 480;
 
-let speedX = 1.1; // Bay ngang chậm
-let speedY = 0.05; // Bay lên rất nhẹ
+let speedX = 1.1;
+let speedY = 0.05;
 let x = 0;
 let y = canvas.height;
 let dotPath = [];
 let counter = 1.0;
-let randomStop = Math.random() * (10 - 0.1) + 0.8;
+let randomStop = 1.0;
 let cashedOut = false;
 let placedBet = false;
 let isFlying = false;
@@ -24,7 +24,7 @@ const image = new Image();
 image.src = './img/aviator_jogo.png';
 
 let balanceAmount = document.getElementById('balance-amount');
-let calculatedBalanceAmount = 3000000;
+let calculatedBalanceAmount = 123456789;
 balanceAmount.textContent = calculatedBalanceAmount.toLocaleString('vi-VN') + ' VND';
 
 let betButton = document.getElementById('bet-button');
@@ -82,7 +82,6 @@ function updateBetTimer(deltaTime) {
         if (betTimer <= 0) {
             canBet = false;
             messageField.textContent = 'Hết thời gian đặt cược';
-            // Ẩn thanh thời gian cược
             document.getElementById('bet-timer').style.display = 'none';
         }
     }
@@ -112,9 +111,20 @@ autoBetCheckbox.addEventListener('change', () => {
 });
 
 let animationId;
-
-let takeoffTime = 1.2; // giây đầu cất cánh
+let takeoffTime = 1.2;
 let takeoffElapsed = 0;
+
+// === KẾT QUẢ ĐÃ MÃ HÓA (Chủ web biết trước) ===
+let encryptedResults = [
+    "NjAuNQ==", "NjMuNA==", "OTUuOQ==", "MzIuMA==", "MTIuOQ==", "MjAuNg=="
+]; // 1.93x, 2.02x, 3.05x, 1.02x, 0.41x, 0.66x
+let roundIndex = 0;
+
+function decryptResult(enc) {
+    let decoded = atob(enc);
+    let raw = parseFloat(decoded);
+    return parseFloat((raw / 31.4).toFixed(2));
+}
 
 function draw(currentTime) {
     const deltaTime = currentTime - lastFrameTime;
@@ -124,24 +134,18 @@ function draw(currentTime) {
     updateCounterDepo();
     updateBetTimer(deltaTime);
 
-    // Khi hết thời gian đặt cược thì bắt đầu bay
     if (!isFlying && !canBet && counter === 1.0) {
         isFlying = true;
         takeoffElapsed = 0;
     }
 
     if (isFlying) {
-        counter += deltaTime * 0.001 * 0.1; // giảm tốc độ tăng số
+        counter += deltaTime * 0.001 * 0.1;
         document.getElementById('counter').textContent = counter.toFixed(2) + 'x';
 
-        // Hiệu ứng cất cánh: tăng dần speedY trong takeoffTime đầu
-        if (takeoffElapsed < takeoffTime) {
-            takeoffElapsed += deltaTime / 1000;
-            let progress = Math.min(takeoffElapsed / takeoffTime, 1);
-            var currentSpeedY = speedY * progress;
-        } else {
-            var currentSpeedY = speedY;
-        }
+        let currentSpeedY = (takeoffElapsed < takeoffTime)
+            ? speedY * Math.min(takeoffElapsed += deltaTime / 1000, takeoffTime) / takeoffTime
+            : speedY;
 
         x += speedX * (0.98 + 0.02 * Math.sin(counter));
         y -= currentSpeedY * (1 + 0.2 * Math.sin(x / 40));
@@ -161,7 +165,6 @@ function draw(currentTime) {
         }
     }
 
-    // Vẽ đường bay
     const canvasOffsetX = canvas.width / 2 - x;
     const canvasOffsetY = canvas.height / 2 - y;
     ctx.save();
@@ -182,7 +185,7 @@ function draw(currentTime) {
     ctx.arc(x, y, 1, 0, 2 * Math.PI);
     ctx.fill();
 
-    ctx.drawImage(image, x - 42, y - 117, 278, 128); // tăng kích thước máy bay
+    ctx.drawImage(image, x - 42, y - 117, 278, 128);
     ctx.restore();
 
     if (!isFlying && counter >= randomStop) {
@@ -201,13 +204,9 @@ function draw(currentTime) {
 }
 
 betButton.addEventListener('click', () => {
-    if (placedBet && canBet) {
-        cancelBet();
-    } else if (placedBet) {
-        cashOut();
-    } else {
-        placeBet();
-    }
+    if (placedBet && canBet) cancelBet();
+    else if (placedBet) cashOut();
+    else placeBet();
 });
 
 function setBetInputEnabled(enabled) {
@@ -248,7 +247,6 @@ function cancelBet() {
         betButton.textContent = 'Đặt Cược';
         messageField.textContent = 'Đã hủy cược';
         setBetInputEnabled(true);
-        // Xóa lịch sử cược vừa thêm (nếu muốn)
         if (betHistoryTable.rows.length > 0 && betHistory[0]?.result === 'Đang chờ') {
             betHistoryTable.deleteRow(0);
             betHistory.shift();
@@ -278,11 +276,10 @@ function cashOut() {
     }
 }
 
-// Khởi động vòng chơi mới
 function startRound() {
     counter = 1.0;
-    x = 4; // lệch sang trái một chút (mặc định là 0)
-    y = canvas.height - 6; // thấp hơn đáy canvas 60px (mặc định là canvas.height)
+    x = 4;
+    y = canvas.height - 6;
     dotPath = [];
     cashedOut = false;
     placedBet = false;
@@ -290,7 +287,8 @@ function startRound() {
     canBet = true;
     betTimer = 8;
     betTimerBar.style.width = '100%';
-    randomStop = Math.random() * (10 - 0.1) + 0.8;
+    randomStop = decryptResult(encryptedResults[roundIndex % encryptedResults.length]);
+    roundIndex++;
     messageField.textContent = 'Chờ vòng tiếp theo';
     setBetInputEnabled(true);
     document.getElementById('bet-timer').style.display = 'block';
