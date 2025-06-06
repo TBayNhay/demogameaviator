@@ -179,7 +179,7 @@ function draw(currentTime) {
 
     if (!isFlying && counter >= randomStop) {
         // 🔥 Gửi kết quả về tool Python
-        fetch('http://localhost:5000/api/report_result', {
+        fetch('http://127.0.0.1:5050/api/report_result', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
