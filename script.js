@@ -10,7 +10,7 @@ let x = 0;
 let y = canvas.height;
 let dotPath = [];
 let counter = 1.0;
-let randomStop = 1.0;
+let randomStop = Math.random() * (10 - 0.1) + 0.8;
 let cashedOut = false;
 let placedBet = false;
 let isFlying = false;
@@ -111,20 +111,9 @@ autoBetCheckbox.addEventListener('change', () => {
 });
 
 let animationId;
+
 let takeoffTime = 1.2;
 let takeoffElapsed = 0;
-
-// === KẾT QUẢ ĐÃ MÃ HÓA (Chủ web biết trước) ===
-let encryptedResults = [
-    "NjAuNQ==", "NjMuNA==", "OTUuOQ==", "MzIuMA==", "MTIuOQ==", "MjAuNg=="
-]; // 1.93x, 2.02x, 3.05x, 1.02x, 0.41x, 0.66x
-let roundIndex = 0;
-
-function decryptResult(enc) {
-    let decoded = atob(enc);
-    let raw = parseFloat(decoded);
-    return parseFloat((raw / 31.4).toFixed(2));
-}
 
 function draw(currentTime) {
     const deltaTime = currentTime - lastFrameTime;
@@ -143,9 +132,9 @@ function draw(currentTime) {
         counter += deltaTime * 0.001 * 0.1;
         document.getElementById('counter').textContent = counter.toFixed(2) + 'x';
 
-        let currentSpeedY = (takeoffElapsed < takeoffTime)
-            ? speedY * Math.min(takeoffElapsed += deltaTime / 1000, takeoffTime) / takeoffTime
-            : speedY;
+        let currentSpeedY = (takeoffElapsed < takeoffTime) ?
+            speedY * Math.min(takeoffElapsed += deltaTime / 1000, 1) :
+            speedY;
 
         x += speedX * (0.98 + 0.02 * Math.sin(counter));
         y -= currentSpeedY * (1 + 0.2 * Math.sin(x / 40));
@@ -189,6 +178,18 @@ function draw(currentTime) {
     ctx.restore();
 
     if (!isFlying && counter >= randomStop) {
+        // 🔥 Gửi kết quả về tool Python
+        fetch('http://localhost:5000/api/report_result', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                result: parseFloat(counter.toFixed(2)),
+                timestamp: Date.now()
+            })
+        }).catch(err => console.warn('Không thể gửi kết quả tới tool:', err));
+
         cancelAnimationFrame(animationId);
 
         counterDepo.unshift(parseFloat(counter.toFixed(2)));
@@ -204,9 +205,13 @@ function draw(currentTime) {
 }
 
 betButton.addEventListener('click', () => {
-    if (placedBet && canBet) cancelBet();
-    else if (placedBet) cashOut();
-    else placeBet();
+    if (placedBet && canBet) {
+        cancelBet();
+    } else if (placedBet) {
+        cashOut();
+    } else {
+        placeBet();
+    }
 });
 
 function setBetInputEnabled(enabled) {
@@ -287,8 +292,7 @@ function startRound() {
     canBet = true;
     betTimer = 8;
     betTimerBar.style.width = '100%';
-    randomStop = decryptResult(encryptedResults[roundIndex % encryptedResults.length]);
-    roundIndex++;
+    randomStop = Math.random() * (10 - 0.1) + 0.8;
     messageField.textContent = 'Chờ vòng tiếp theo';
     setBetInputEnabled(true);
     document.getElementById('bet-timer').style.display = 'block';
