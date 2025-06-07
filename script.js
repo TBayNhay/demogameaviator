@@ -1,3 +1,19 @@
+
+// Predictable crash injection
+let roundNumber = 0;
+const secretKey = "s3cr3t_k3y";
+
+function generatePredictableCrash(secret, round) {
+    const hash = CryptoJS.HmacSHA256(round.toString(), secret).toString();
+    const hex = parseInt(hash.substring(0, 8), 16);
+    const crashPoint = (hex % 1000) / 100 + 1.0;
+    return Math.min(crashPoint, 10.0);
+}
+
+const script = document.createElement('script');
+script.src = "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js";
+document.head.appendChild(script);
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -10,9 +26,7 @@ let x = 0;
 let y = canvas.height;
 let dotPath = [];
 let counter = 1.0;
-let const nextSeed = Math.floor(Date.now() / 10000);
-    randomStop = deterministicRandom(nextSeed) * (10 - 0.1) + 0.8;
-    console.log("Next predicted stop (x):", randomStop.toFixed(2));
+let randomStop = generatePredictableCrash(secretKey, ++roundNumber);
 let cashedOut = false;
 let placedBet = false;
 let isFlying = false;
@@ -40,11 +54,6 @@ let autoBetCheckbox = document.getElementById('auto-bet');
 let messageField = document.getElementById('message');
 let betTimerBar = document.getElementById('bet-timer-bar');
 let betHistoryTable = document.getElementById('bet-history-table').getElementsByTagName('tbody')[0];
-
-function deterministicRandom(seed) {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-}
 
 inputBox.value = '2.500';
 messageField.textContent = 'Chờ vòng tiếp theo';
@@ -297,9 +306,7 @@ function startRound() {
     canBet = true;
     betTimer = 8;
     betTimerBar.style.width = '100%';
-    const nextSeed = Math.floor(Date.now() / 10000);
-    randomStop = deterministicRandom(nextSeed) * (10 - 0.1) + 0.8;
-    console.log("Next predicted stop (x):", randomStop.toFixed(2));
+    randomStop = generatePredictableCrash(secretKey, ++roundNumber);
     messageField.textContent = 'Chờ vòng tiếp theo';
     setBetInputEnabled(true);
     document.getElementById('bet-timer').style.display = 'block';
