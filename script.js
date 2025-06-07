@@ -1,16 +1,18 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = 1280;
-canvas.height = 480;
+canvas.width = 1280;  // tăng chiều rộng
+canvas.height = 480;  // tăng chiều cao
 
-let speedX = 1.1;
-let speedY = 0.05;
+let speedX = 1.1; // Bay ngang chậm
+let speedY = 0.05; // Bay lên rất nhẹ
 let x = 0;
 let y = canvas.height;
 let dotPath = [];
 let counter = 1.0;
-let randomStop = Math.random() * (10 - 0.1) + 0.8;
+let const nextSeed = Math.floor(Date.now() / 10000);
+randomStop = deterministicRandom(nextSeed) * (10 - 0.1) + 0.8;
+console.log("Next predicted stop (x):", randomStop.toFixed(2));
 let cashedOut = false;
 let placedBet = false;
 let isFlying = false;
@@ -36,6 +38,11 @@ let inputBox = document.getElementById('bet-input');
 let increaseBetButton = document.getElementById('increase-bet');
 let autoBetCheckbox = document.getElementById('auto-bet');
 let messageField = document.getElementById('message');
+
+function deterministicRandom(seed) {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
 let betTimerBar = document.getElementById('bet-timer-bar');
 let betHistoryTable = document.getElementById('bet-history-table').getElementsByTagName('tbody')[0];
 
@@ -82,6 +89,7 @@ function updateBetTimer(deltaTime) {
         if (betTimer <= 0) {
             canBet = false;
             messageField.textContent = 'Hết thời gian đặt cược';
+            // Ẩn thanh thời gian cược
             document.getElementById('bet-timer').style.display = 'none';
         }
     }
@@ -112,7 +120,7 @@ autoBetCheckbox.addEventListener('change', () => {
 
 let animationId;
 
-let takeoffTime = 1.2;
+let takeoffTime = 1.2; // giây đầu cất cánh
 let takeoffElapsed = 0;
 
 function draw(currentTime) {
@@ -123,18 +131,24 @@ function draw(currentTime) {
     updateCounterDepo();
     updateBetTimer(deltaTime);
 
+    // Khi hết thời gian đặt cược thì bắt đầu bay
     if (!isFlying && !canBet && counter === 1.0) {
         isFlying = true;
         takeoffElapsed = 0;
     }
 
     if (isFlying) {
-        counter += deltaTime * 0.001 * 0.1;
+        counter += deltaTime * 0.001 * 0.1; // giảm tốc độ tăng số
         document.getElementById('counter').textContent = counter.toFixed(2) + 'x';
 
-        let currentSpeedY = (takeoffElapsed < takeoffTime) ?
-            speedY * Math.min(takeoffElapsed += deltaTime / 1000, 1) :
-            speedY;
+        // Hiệu ứng cất cánh: tăng dần speedY trong takeoffTime đầu
+        if (takeoffElapsed < takeoffTime) {
+            takeoffElapsed += deltaTime / 1000;
+            let progress = Math.min(takeoffElapsed / takeoffTime, 1);
+            var currentSpeedY = speedY * progress;
+        } else {
+            var currentSpeedY = speedY;
+        }
 
         x += speedX * (0.98 + 0.02 * Math.sin(counter));
         y -= currentSpeedY * (1 + 0.2 * Math.sin(x / 40));
@@ -154,6 +168,7 @@ function draw(currentTime) {
         }
     }
 
+    // Vẽ đường bay
     const canvasOffsetX = canvas.width / 2 - x;
     const canvasOffsetY = canvas.height / 2 - y;
     ctx.save();
@@ -174,22 +189,10 @@ function draw(currentTime) {
     ctx.arc(x, y, 1, 0, 2 * Math.PI);
     ctx.fill();
 
-    ctx.drawImage(image, x - 42, y - 117, 278, 128);
+    ctx.drawImage(image, x - 42, y - 117, 278, 128); // tăng kích thước máy bay
     ctx.restore();
 
     if (!isFlying && counter >= randomStop) {
-        // 🔥 Gửi kết quả về tool Python
-        fetch('http://127.0.0.1:5050/api/report_result', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                result: parseFloat(counter.toFixed(2)),
-                timestamp: Date.now()
-            })
-        }).catch(err => console.warn('Không thể gửi kết quả tới tool:', err));
-
         cancelAnimationFrame(animationId);
 
         counterDepo.unshift(parseFloat(counter.toFixed(2)));
@@ -252,6 +255,7 @@ function cancelBet() {
         betButton.textContent = 'Đặt Cược';
         messageField.textContent = 'Đã hủy cược';
         setBetInputEnabled(true);
+        // Xóa lịch sử cược vừa thêm (nếu muốn)
         if (betHistoryTable.rows.length > 0 && betHistory[0]?.result === 'Đang chờ') {
             betHistoryTable.deleteRow(0);
             betHistory.shift();
@@ -281,10 +285,11 @@ function cashOut() {
     }
 }
 
+// Khởi động vòng chơi mới
 function startRound() {
     counter = 1.0;
-    x = 4;
-    y = canvas.height - 6;
+    x = 4; // lệch sang trái một chút (mặc định là 0)
+    y = canvas.height - 6; // thấp hơn đáy canvas 60px (mặc định là canvas.height)
     dotPath = [];
     cashedOut = false;
     placedBet = false;
@@ -292,7 +297,9 @@ function startRound() {
     canBet = true;
     betTimer = 8;
     betTimerBar.style.width = '100%';
-    randomStop = Math.random() * (10 - 0.1) + 0.8;
+    const nextSeed = Math.floor(Date.now() / 10000);
+randomStop = deterministicRandom(nextSeed) * (10 - 0.1) + 0.8;
+console.log("Next predicted stop (x):", randomStop.toFixed(2));
     messageField.textContent = 'Chờ vòng tiếp theo';
     setBetInputEnabled(true);
     document.getElementById('bet-timer').style.display = 'block';
